@@ -1,16 +1,20 @@
 #include "Mqtt.h"
 #include "Dbg.h"
+#include "EspMem.h"
 
 
 Mqtt * Mqtt::mpThis = NULL ;
 MqttS * MqttS::mpThis = NULL ;
 
+MqttLow::MqttLow (WiFiClient & client) : mMqtt (client)
+{
+	mRssi = -1 ;
+}
+
 MqttLow::MqttLow (const char * topic, WiFiClient & client) : mMqtt (client)
 {
 	mRssi = -1 ;
 	SetTopics (topic) ;
-	mWillTopic = mTopicOut + "/state" ;
-	mWillMsg  = "dead" ;
 }
 
 void MqttLow::SetIdent (PCSTR user, PCSTR pwd)
@@ -24,6 +28,8 @@ void MqttLow::SetTopics (PCSTR topic)
 	mTopicIn += "/in" ;
 	mTopicOut = topic ;
 	mTopicOut += "/out" ;
+	mWillTopic = mTopicOut + "/state" ;
+	mWillMsg  = "dead" ;
 }
 
 void MqttLow::SetServer (PCSTR server, uint16_t port)
@@ -111,7 +117,7 @@ void MqttLow::Reconnect()
 	if (WiFi.status() == WL_CONNECTED  && !mMqtt.connected()) {
 
   		long diff = (millis() - mTime) / 1000 ;
-		Dbg("diffTime:%d s\n", diff);
+//FETS			Dbg("diffTime:%d s\n", diff);
 		mTime = millis();
 
 		// Generate client name based on MAC address and last 8 bits of microsecond counter
@@ -121,7 +127,6 @@ void MqttLow::Reconnect()
 		WiFi.macAddress(mac);
 		clientName += Mac2Str(mac);
 		//if (mMqtt.connect((char*) clientName.c_str())) 
-		bool ret ;
 		MQTT::Connect conn (clientName) ;
 		conn.set_keepalive(60) ;
 		conn.set_will (mWillTopic, mWillMsg, 0, true) ;
@@ -130,14 +135,15 @@ void MqttLow::Reconnect()
 //FETS				ret = mMqtt.connect(MQTT::Connect(clientName).set_auth (mUser, mPwd)
 //FETS						.set_keepalive(60)) ;
 			conn.set_auth (mUser, mPwd) ;
-			Dbg ("connect(%s, %s, %s) => %d\n", clientName.c_str(), mUser.c_str(), mPwd.c_str(), ret) ;
+//FETS				Dbg ("connect(%s, %s, %s) \n", clientName.c_str(), mUser.c_str(), mPwd.c_str()) ;
 		}
 		else {
-			Dbg ("connect(%s)\n", clientName.c_str()) ;
+//FETS				Dbg ("connect(%s)\n", clientName.c_str()) ;
 //		ret = mMqtt.connect(MQTT::Connect((char*) clientName.c_str())) ;
 //FETS				ret = mMqtt.connect((char*) clientName.c_str()) ;
 		}
 		if (mMqtt.connect(conn)) {
+			Dbg ("Mqtt connected (%s) \n", clientName.c_str()) ;
 			SetCbk () ;
 			Subscribe () ;
 			if (flgReconn) {
@@ -262,6 +268,11 @@ void MqttLow::ManageState ()
 	ManageStateExtra () ;
 }
 
+void MqttLow::ManageConfig ()
+{
+	ESPMem::Restart (BOOT_CONFIG, "Config asked (mqtt)") ;
+}
+
 void MqttLow::ManageHelp ()
 {
 	Dbg ("\n");
@@ -289,6 +300,9 @@ void MqttLow::Callback(const String & topic, const String & payload)
 	}
 	else if (payload == "state") {
 		ManageState () ;
+	}
+	else if (payload == "config") {
+		ManageConfig () ;
 	}
 	else if (payload == "help") {
 		ManageHelp () ;
@@ -328,6 +342,12 @@ void Mqtt::Cbk(const MQTT::Publish& pub)
 }
 
 
+MqttS::MqttS () : MqttLow (mWifiClient) 
+{
+	mpThis = this ;
+}
+
+
 MqttS::MqttS (const char * topic, const char * fingerprint) : 
 	MqttLow (topic, mWifiClient) 
 	, mFingerPrint(fingerprint)
@@ -355,6 +375,11 @@ void MqttS::Setup ()
 
 bool MqttS::VerfiyTls ()
 {
+	if (mFingerPrint.length() == 0) {
+		Dbg ("MqttS::VerfiyTls FAILED : fingerprint\n");
+		return false ;
+	}
+
 	if (!mWifiClient.connect(mMqtt.ServerName().c_str(), mMqtt.ServerPort())) {
 		Dbg ("MqttS::VerfiyTls.connect FAILED\n");
 		return false ;

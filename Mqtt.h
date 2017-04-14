@@ -4,16 +4,16 @@
 #include <PubSubClient2.h>
 #include <ESP8266WiFi.h>
 #include <Telnet.h>
+#include <MyTypes.h>
 
 #include <Ticker.h>
 
 
-//FETS	typedef unsigned char uint8_t ;
-typedef const char * PCSTR ;
 class MqttLow 
 {
 public:
 	MqttLow (PCSTR topic, WiFiClient & client) ;
+	MqttLow (WiFiClient & client) ;
 	void			SetTopics (PCSTR topic) ;
 	virtual ~MqttLow () {}
 	void			SetIdent (PCSTR user, PCSTR pwd) ;
@@ -46,6 +46,7 @@ protected:
 	virtual void		ManageRssi () ;
 	virtual void		ManageFlash () {} ;
 	virtual void		ManageState ()  ;
+	virtual void		ManageConfig ()  ;
 	virtual void		ManageStateExtra () {} ;
 	virtual void		ManageHelp ()  ;
 	virtual void		ManageHelpExtra () {} ;
@@ -78,6 +79,8 @@ class MqttS : public MqttLow
 {
 public:
 	MqttS (PCSTR topic, PCSTR fingerPrint) ;
+	MqttS () ;
+	void SetFingerPrint (PCSTR fingerPrint) { mFingerPrint = fingerPrint ; }
 	virtual ~MqttS () {}
 	virtual void		Setup () ;
 protected:

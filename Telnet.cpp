@@ -1,10 +1,4 @@
 
-//FETS	#include <ESP8266WiFi.h>
-//FETS	#include <ESP8266mDNS.h>
-//FETS	#include <WiFiUdp.h>
-//FETS	#include <WiFiServer.h>
-//FETS	#include <ArduinoOTA.h>
-
 #include "Telnet.h"
 
 
